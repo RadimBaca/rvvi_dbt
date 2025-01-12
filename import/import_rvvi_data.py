@@ -1,15 +1,13 @@
 import os
 import pandas as pd
 import pyodbc
-import requests
 from dotenv import load_dotenv
-import zipfile
-
 from article import download_articles, import_articles
 from institution import download_institutions, import_institutions
 
 
 def db_connection():
+    """Establish a connection to the database using environment variables."""
     load_dotenv()
     server = os.getenv('DB_SERVER')
     database = os.getenv('DB_DATABASE')
@@ -18,43 +16,61 @@ def db_connection():
     if not all([server, database, username, password]):
         raise ValueError("Database connection details are not fully provided in the .env file.")
     connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-    # Connect to the SQL Server database
-    conn = pyodbc.connect(connection_string)
-    return conn
+    return pyodbc.connect(connection_string)
 
 
-
-def create_rvvi_script(conn, cursor):
-    with open('create_rvvi.sql', 'r') as file:
-        sql_script = file.read()
-
-    commands = sql_script.split('go\n')
-
-    # Execute each command separately
+def create_rvvi_script(conn, cursor, script_path='create_rvvi.sql'):
+    """Execute the SQL script for RVVI table creation."""
     try:
+        with open(script_path, 'r') as file:
+            sql_script = file.read()
+
+        commands = sql_script.split('go\n')
+
         for command in commands:
             command = command.strip()
             if command:  # Skip empty commands
                 cursor.execute(command)
                 conn.commit()
-        print("create_rvvi.sql SQL script executed successfully.")
+        print(f"{script_path} SQL script executed successfully.")
     except Exception as e:
         print(f"Error executing SQL script: {e}")
 
 
-conn = db_connection()
-schema = os.getenv('DB_SCHEMA')
-directory = '.'
-cursor = conn.cursor()
+def main():
+    """Main function to manage the data processing workflow."""
+    try:
+        # Establish database connection
+        conn = db_connection()
+        cursor = conn.cursor()
 
-df = pd.read_excel(download_institutions())
+        # Retrieve schema and directory settings
+        schema = os.getenv('DB_SCHEMA')
 
-create_rvvi_script(conn, cursor)
-import_institutions(df, schema, conn, cursor)
+        # Download and process institution data
+        institution_data_path = download_institutions()
+        df_institutions = pd.read_excel(institution_data_path)
 
-download_articles()
-import_articles(schema, conn, cursor)
+        # Execute RVVI table creation script
+        create_rvvi_script(conn, cursor)
 
-# Close the database connection
-cursor.close()
-conn.close()
+        # Import institution data
+        import_institutions(df_institutions, schema, conn, cursor)
+
+        # Download and process articles
+        download_articles()
+        import_articles(schema, conn, cursor)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    finally:
+        # Ensure resources are properly closed
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'conn' in locals() and conn:
+            conn.close()
+
+
+if __name__ == "__main__":
+    main()

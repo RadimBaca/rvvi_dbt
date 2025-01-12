@@ -13,7 +13,7 @@ DB_SCHEMA=staging
 
 Once your `.env` file is ready, you can run the import script:
 ```bash
-python import.py
+python import_rvvi_data.py
 ```
 
 The import script will download the data from the public resources and import it into the databse.

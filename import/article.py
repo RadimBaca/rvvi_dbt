@@ -1,43 +1,11 @@
 import os
-import pandas as pd
-import pyodbc
-import requests
-from dotenv import load_dotenv
 import re
-import zipfile
 
-def db_connection():
-    load_dotenv()
-    server = os.getenv('DB_SERVER')
-    database = os.getenv('DB_DATABASE')
-    username = os.getenv('DB_USERNAME')
-    password = os.getenv('DB_PASSWORD')
-    if not all([server, database, username, password]):
-        raise ValueError("Database connection details are not fully provided in the .env file.")
-    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-    # Connect to the SQL Server database
-    conn = pyodbc.connect(connection_string)
-    return conn
+import pandas as pd
 
+from convert_helpers import strip_prefix, truncate_string, convert_czech_or_slovak
+from import_rvvi_data import conn
 
-def download_institutions():
-    global url, file_path, response, f
-    # Define the URL for the XLSX file and the local file path
-    url = 'https://msmt.gov.cz/file/63699_1_1/'
-    file_path = 'Seznam_vyzkumnych_organizaci-14.xlsx'
-    # Download the file if it does not already exist
-    if not os.path.exists(file_path):
-        print(f"Downloading file from {url}...")
-        response = requests.get(url)
-        if response.status_code == 200:
-            with open(file_path, 'wb') as f:
-                f.write(response.content)
-            print(f"File downloaded and saved to {file_path}")
-            return file_path
-        else:
-            print(f"Failed to download the file. HTTP Status Code: {response.status_code}")
-            exit(1)
-    return file_path
 
 def download_articles():
     urls = [
@@ -73,43 +41,6 @@ def download_articles():
 
     print(f"All files downloaded and extracted to '{output_dir}'.")
 
-
-def create_rvvi_script(conn, cursor):
-    with open('create_rvvi.sql', 'r') as file:
-        sql_script = file.read()
-
-    commands = sql_script.split('go\n')
-
-    # Execute each command separately
-    try:
-        for command in commands:
-            command = command.strip()
-            if command:  # Skip empty commands
-                cursor.execute(command)
-                conn.commit()
-        print("create_rvvi.sql SQL script executed successfully.")
-    except Exception as e:
-        print(f"Error executing SQL script: {e}")
-
-
-def import_institutions(df, schema, conn, cursor):
-    for index, row in df.iterrows():
-        name = truncate_string(str(row['Nazev_vyzkumne_organizace']), 1000)
-        ico = int(row['ICO'])
-        street = truncate_string(str(row['Sidlo']), 500)
-        psc = int(row['PSC'].replace(" ", ""))
-        town = truncate_string(str(row['Mesto']), 200)
-        legal_form = truncate_string(str(row['Pravni_forma']), 500)
-        main_goal = truncate_string(str(row['Hlavni_cil_cinnosti']), 2000)
-        created = pd.to_datetime(row['Datum_zapisu'], format='%m/%d/%Y')
-
-        sql = f"""
-        INSERT INTO {schema}.institution (name, ico, street, psc, town, legal_form, main_goal, created)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """
-        cursor.execute(sql, name, ico, street, psc, town, legal_form, main_goal, created)
-    conn.commit()
-
 def import_articles(schema, con, cursor):
     base_dir = '.'
     # Scan directories and process each XLSX file
@@ -141,10 +72,10 @@ def import_articles(schema, con, cursor):
                     continue
                 sid = sid_row[0]
 
-                # Insert the fields_ford entry if it does not exist
-                cursor.execute(f"SELECT fid FROM {schema}.fields_ford WHERE fid = ?", fid)
+                # Insert the field_ford entry if it does not exist
+                cursor.execute(f"SELECT fid FROM {schema}.field_ford WHERE fid = ?", fid)
                 if not cursor.fetchone():
-                    cursor.execute(f"INSERT INTO {schema}.fields_ford (fid, sid, name) VALUES (?, ?, ?)", fid, sid,
+                    cursor.execute(f"INSERT INTO {schema}.field_ford (fid, sid, name) VALUES (?, ?, ?)", fid, sid,
                                    ford_field_name)
                     conn.commit()
 
@@ -235,37 +166,3 @@ def import_articles(schema, con, cursor):
 
                     conn.commit()
                     print(f"Inserted data from sheet '{sheet_name}' into the database.")
-
-
-# Helper function to truncate strings to fit within the maximum length
-def truncate_string(value, max_length):
-    if len(value) > max_length:
-        return value[:max_length]
-    return value
-
-
-# Helper function to convert 'NE'/'E' to integers
-def convert_czech_or_slovak(value):
-    return 1 if value.lower() == 'e' else 0
-
-# Function to strip numeric prefixes and periods from directory names
-def strip_prefix(name):
-    return re.sub(r'^\d+\.\s*', '', name)
-
-
-conn = db_connection()
-schema = os.getenv('DB_SCHEMA')
-directory = '.'
-cursor = conn.cursor()
-
-df = pd.read_excel(download_institutions())
-
-create_rvvi_script(conn, cursor)
-import_institutions(df, schema, conn, cursor)
-
-download_articles()
-import_articles(schema, conn, cursor)
-
-# Close the database connection
-cursor.close()
-conn.close()

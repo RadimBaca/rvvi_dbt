@@ -2,7 +2,7 @@
 
 drop table if exists staging.article;
 drop table if exists staging.journal;
-drop table if exists staging.fields_ford;
+drop table if exists staging.field_ford;
 drop table if exists staging.field_of_study;
 drop table if exists staging.institution;
 go
@@ -28,7 +28,7 @@ go
 
 
 
-create table staging.fields_ford (
+create table staging.field_ford (
 	fid int primary key,
 	sid int foreign key references staging.field_of_study(sid),
 	name varchar(100)
@@ -44,7 +44,7 @@ create table staging.journal (
   article_count int,
   zone varchar(6),
   czech_or_slovak varchar(4),
-  fid int foreign key references staging.fields_ford(fid)
+  fid int foreign key references staging.field_ford(fid)
 );
 go
 
@@ -58,7 +58,7 @@ create table staging.article (
   issn varchar(10),
   eissn varchar(10),
   aid int references staging.journal(aid),
-  fid int foreign key references staging.fields_ford(fid),
+  fid int foreign key references staging.field_ford(fid),
   authors varchar(8000),
   VO_coresponding_author varchar(8000),
   author_count int,

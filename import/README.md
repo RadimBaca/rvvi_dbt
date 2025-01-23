@@ -1,4 +1,4 @@
-This is a initial import into a SQL Server database from public resources. 
+This is an initial import into a SQL Server database from public resources. 
 
 ### Run Import
 
@@ -16,4 +16,4 @@ Once your `.env` file is ready, you can run the import script:
 make -f MakeFile run
 ```
 
-The import script will download the data from the public resources and import it into the database.
+The import script will download and import the data from the public resources into the database.

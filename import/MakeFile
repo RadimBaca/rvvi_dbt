@@ -1,0 +1,18 @@
+include .env
+export
+
+run:
+	python pipeline_rvvi.py \
+		--db-username=$(DB_USERNAME) \
+		--db-password=$(DB_PASSWORD) \
+		--db-server=$(DB_SERVER) \
+		--db-database=$(DB_DATABASE) \
+		--db-schema=$(DB_SCHEMA)
+
+test:
+	python -m unittest .\tests\article_test.py
+
+help:
+	@echo "Makefile for running pipeline_rvvi.py with arguments modeled using pydantic"
+	@echo "Targets:"
+	@echo "  run    - Run the Python script with arguments"

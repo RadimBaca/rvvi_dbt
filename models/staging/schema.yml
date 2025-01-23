@@ -1,0 +1,23 @@
+
+version: 2
+
+
+models:
+  - name: stg_institution
+    description: "Contains some minor normalizations of the institution names and renames few column names"
+    columns:
+      - name: iid
+        description: "The primary key for this table"
+        data_type: int
+        constraints:
+          - type: primary_key
+          - type: not_null
+        test:
+          - unique
+      - name: name
+        description: "The name of the institution"
+        data_type: string
+        constraints:
+          - type: not_null
+        tests:
+          - not_null

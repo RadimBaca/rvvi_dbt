@@ -1,0 +1,163 @@
+
+version: 2
+
+sources:
+  - name: staging
+    schema: staging
+    tables:
+      - name: field_of_study
+      - name: field_ford
+      - name: journal
+      - name: institution
+      - name: article
+
+models:
+  - name: field_of_science
+    description: >
+      A codebook cointaining all the categories of science. 
+      Every FORD field belongs to exactly one field of science.
+    columns:
+      - name: sid
+        description: "The primary key for this table"
+        data_type: int
+        tests:
+          - unique
+          - not_null
+      - name: name
+        description: "The name of the field of science"
+        data_type: string
+        tests:
+          - not_null
+  - name: field_ford
+    description: >
+      A codebook containing all the fields in the Ford dataset. 
+      Each field links to a scientific category via `sid`.
+    columns:
+      - name: fid
+        description: >
+          Primary key for the Ford field. Uniquely identifies a field in the dataset.
+        tests:
+          - unique
+          - not_null
+      - name: sid
+        description: >
+          Foreign key linking to the `field_of_science` table. Represents the scientific category for the field.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('field_of_science')
+              field: sid
+      - name: name
+        description: >
+          The name of the Ford field.
+        tests:
+          - not_null
+  - name: journal
+    description: "It is a codebook cointaining all the journals"
+    columns:
+      - name: jid
+        description: "The primary key for this table"
+        constraints:
+          - type: primary_key
+          - type: not_null
+      - name: name
+        description: "The name of the journal"
+        constraints:
+          - type: not_null
+      - name: issn
+        description: "The International Standard Serial Number of the journal"
+        constraints:
+          - type: unique
+      - name: czech_or_slovak
+        description: "Whether the journal is Czech or Slovak"
+        constraints:
+          - type: not_null
+          - type: check
+            condition: "czech_or_slovak IN ('NE', 'ANO')"
+  - name: year_field_journal
+    constraints:
+      - type: unique
+        columns: [fid, jid, year]
+    columns:
+      - name: fid
+        description: "Primary key of a FORD field."
+      - name: jid
+        description: "Journal ID - a unique identifier for the journal."
+      - name: year
+        description: "Year - the year associated with this ranking of a journal entry."
+      - name: ranking
+        description: "The ranking of the journal in the given year."
+        data_type: int
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [fid, jid, year]
+  - name: institution
+    description: "Information about institutions where some names are swapped using institution_map"
+    columns:
+      - name: iid
+        description: "The primary key for this table"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - unique
+      - name: name
+        description: "The name of the institution"
+        tests:
+          - not_null
+      - name: reg_number
+        description: "The registration number of the institution"
+      - name: town
+        description: "The town where the institution is located"
+      - name: postal_code
+        description: "The postal code of the institution"
+      - name: street
+        description: "The street where the institution is located"
+  - name: author
+    description: "Information about authors"
+    columns:
+      - name: rid
+        description: "The primary key for this table"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - unique
+      - name: name
+        description: "The name of the author"
+        tests:
+          - not_null
+  - name: article
+    description: "Information about articles"
+    columns:
+      - name: aid
+        description: "The primary key for this table"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - unique
+      - name: jid
+        description: "The foreign key to the journal table"
+        constraints:
+          - type: foreign_key
+            to: journal.jid
+      - name: name
+        description: "The title of the article"
+        tests:
+          - not_null
+      - name: UT_WoS
+        description: "The Web of Science identifier"
+      - name: type
+        description: "The type of the article"
+        tests:
+          - not_null
+      - name: year
+        description: "The year of the article"
+        tests:
+          - not_null
+          - accepted_values:
+              name: year_of_article_accepted_values
+              values: [2018, 2019, 2020, 2021, 2022]

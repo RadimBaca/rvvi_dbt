@@ -2,7 +2,7 @@ import re
 
 
 def strip_prefix(name):
-    return re.sub(r'^\d+\.\s*', '', name)
+    return re.sub(r'^\d+(\.\d+)?\.\s*', '', name)
 
 
 def convert_czech_or_slovak(value):
@@ -10,6 +10,7 @@ def convert_czech_or_slovak(value):
 
 
 def truncate_string(value, max_length):
+    value = str(value)
     if len(value) > max_length:
         return value[:max_length]
     return value
